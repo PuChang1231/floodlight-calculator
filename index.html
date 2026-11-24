@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>探照燈照射範圍與照度計算器</title>
+    <style>
+        body {
+            font-family: "Microsoft JhengHei", -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 15px;
+            box-sizing: border-box;
+            -webkit-text-size-adjust: 100%;
+        }
+        .card {
+            background: #ffffff;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        h2 {
+            margin-top: 0;
+            color: #1a202c;
+            font-size: 1.35rem;
+            text-align: center;
+            border-bottom: 2px solid #edf2f7;
+            padding-bottom: 12px;
+        }
+        .note {
+            font-size: 0.85rem;
+            color: #718096;
+            background: #f7fafc;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 18px;
+            line-height: 1.4;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #2d3748;
+            font-size: 0.95rem;
+        }
+        input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        input:focus {
+            outline: none;
+            border-color: #3182ce;
+        }
+        .btn-calc {
+            width: 100%;
+            padding: 12px;
+            background-color: #3182ce;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.05rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 5px;
+            -webkit-appearance: none;
+        }
+        .btn-calc:active {
+            background-color: #2b6cb0;
+        }
+        .results {
+            margin-top: 20px;
+            background: #ebf8ff;
+            border: 1px solid #bee3f8;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+            color: #2c5282;
+        }
+        .result-item:last-child {
+            margin-bottom: 0;
+        }
+        .result-value {
+            font-weight: bold;
+            color: #1a365d;
+        }
+        .tip {
+            margin-top: 12px;
+            font-size: 0.8rem;
+            color: #a0aec0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>🔦 探照燈估算計算器</h2>
+    <div class="note">
+        ※ 預設基準：一般 LED 泛光燈（光效 100 lm/W、光束角 120°、垂直向下照射）
+    </div>
+
+    <div class="input-group">
+        <label for="watts">燈具瓦數 (W)</label>
+        <input type="text" inputmode="decimal" id="watts" placeholder="例如：100">
+    </div>
+
+    <div class="input-group">
+        <label for="height">安裝高度 (公尺 m)</label>
+        <input type="text" inputmode="decimal" id="height" placeholder="例如：8">
+    </div>
+
+    <button type="button" class="btn-calc" id="calc-btn">立即計算</button>
+
+    <div class="results">
+        <div class="result-item">
+            <span>預估總光通量：</span>
+            <span class="result-value" id="res-lumens">0 lm</span>
+        </div>
+        <div class="result-item">
+            <span>有效照射直徑：</span>
+            <span class="result-value" id="res-diameter">0.00 m</span>
+        </div>
+        <div class="result-item">
+            <span>有效照射面積：</span>
+            <span class="result-value" id="res-area">0.00 ㎡</span>
+        </div>
+        <div class="result-item">
+            <span>正下方中心照度：</span>
+            <span class="result-value" id="res-center-lux">0.0 Lux</span>
+        </div>
+        <div class="result-item">
+            <span>範圍內平均照度：</span>
+            <span class="result-value" id="res-avg-lux">0.0 Lux</span>
+        </div>
+    </div>
+    <div class="tip">已優化適配 iPhone Safari，可直接加入主畫面</div>
+</div>
+
+<script>
+    function calculate() {
+        var wattsStr = document.getElementById('watts').value.trim();
+        var heightStr = document.getElementById('height').value.trim();
+        var watts = parseFloat(wattsStr);
+        var height = parseFloat(heightStr);
+
+        if (isNaN(watts) || isNaN(height) || watts <= 0 || height <= 0) {
+            document.getElementById('res-lumens').innerText = '0 lm';
+            document.getElementById('res-diameter').innerText = '0.00 m';
+            document.getElementById('res-area').innerText = '0.00 ㎡';
+            document.getElementById('res-center-lux').innerText = '0.0 Lux';
+            document.getElementById('res-avg-lux').innerText = '0.0 Lux';
+            return;
+        }
+
+        var efficacy = 100.0;
+        var beamAngle = 120.0;
+
+        var lumens = watts * efficacy;
+        var halfAngleRad = (beamAngle / 2) * (Math.PI / 180);
+        var radius = height * Math.tan(halfAngleRad);
+        var diameter = radius * 2;
+        var area = Math.PI * radius * radius;
+        var centerLux = (lumens / Math.PI) / (height * height);
+        var avgLux = lumens / area;
+
+        document.getElementById('res-lumens').innerText = Math.round(lumens).toLocaleString() + ' lm';
+        document.getElementById('res-diameter').innerText = diameter.toFixed(2) + ' m';
+        document.getElementById('res-area').innerText = area.toFixed(2) + ' ㎡';
+        document.getElementById('res-center-lux').innerText = centerLux.toFixed(1) + ' Lux';
+        document.getElementById('res-avg-lux').innerText = avgLux.toFixed(1) + ' Lux';
+    }
+
+    var wattsInput = document.getElementById('watts');
+    var heightInput = document.getElementById('height');
+    var calcBtn = document.getElementById('calc-btn');
+
+    wattsInput.addEventListener('input', calculate);
+    wattsInput.addEventListener('keyup', calculate);
+    wattsInput.addEventListener('change', calculate);
+
+    heightInput.addEventListener('input', calculate);
+    heightInput.addEventListener('keyup', calculate);
+    heightInput.addEventListener('change', calculate);
+
+    calcBtn.addEventListener('click', calculate);
+
+    // 初始計算一次
+    calculate();
+</script>
+
+</body>
+</html>
